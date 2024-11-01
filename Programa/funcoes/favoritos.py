@@ -11,29 +11,30 @@ def cadastrar(favoritos):
 
     produtos_possiveis = []
     for produto in produtos:
-        if not produto in favoritos:
+        if not produto.get("id") in favoritos:
             produtos_possiveis.append(produto)
-
     favorito = escolherFavorito(produtos_possiveis)
     if favorito:
         print("Produto favoritado com sucesso!")
-        return favorito
+        return favorito.get("id")
     return None
 
 def gerenciar(favoritos):
-    if favoritos:
-        favoritos = [*favoritos]
-    else:
-        favoritos = []
+    if not favoritos:
+        favoritos = set()
     while True:
         quantidade = len(favoritos)
 
         print(separador1)
         print("Favoritos atuais:")
         if quantidade > 0:
-            for favorito in favoritos:
+            for favorito_id in favoritos:
+                favorito = buscarPorId("Produtos", favorito_id)
                 print(separador2)
-                visualizarFavorito(favorito, comVendedor = True)
+                if favorito:
+                    visualizarFavorito(favorito, comVendedor = True)
+                else:
+                    print(f"Id inválido para produto: {favorito_id}")
             print(separador2)
         else:
             print("Favorito: Nenhum favorito encontrado")
@@ -56,12 +57,10 @@ def gerenciar(favoritos):
         elif opcaoEscolhida == "1":
             favorito = cadastrar(favoritos)
             if favorito:
-                favoritos.append(favorito)
+                favoritos.add(favorito)
         elif opcaoEscolhida == "2":
             favoritoEscolhido = escolherFavorito(favoritos, True)
-            if not favoritoEscolhido:
-                continue
-            else:
-                favoritos.remove(favoritoEscolhido)
+            if favoritoEscolhido:
+                favoritos.remove(favoritoEscolhido.get("id"))
         else:
             print("Insira uma opção válida.")

@@ -15,79 +15,65 @@ def cadastrar(vendedor = None):
             return None
 
     nome = entrada("Insira o nome do produto", "NaoVazio", "Nome não pode estar em branco")
-    valor = entrada("Insira o valor do produto (exemplo: 1.23)", "Float", 'Valor Inválido. Deve conter apenas o número decimal, separando por ".".')
+    valor = float(entrada("Insira o valor do produto (exemplo: 1.23)", "Float", 'Valor Inválido. Deve conter apenas o número decimal, separando por ".".'))
 
     produto = {
         "nome_produto": nome,
         "valor_produto": valor,
+        "id_vendedor" : vendedor.get("id")
     }
 
-    produto_cadastrado = {
-        "nome_produto": nome,
-        "valor_produto": valor,
-        "vendedor" : {
-            "_id": vendedor.get("_id"),
-            "nome_vendedor": vendedor.get("nome_vendedor"),
-            "cnpj": vendedor.get("cnpj"),
-            "email_vendedor": vendedor.get("email_vendedor"),
-            "telefone_vendedor": vendedor.get("telefone_vendedor"),
-            "enderecos_vendedor": vendedor.get("enderecos_vendedor")
-        }
-    }
-
-    cadastrou = cadastrarProduto("Produtos", produto_cadastrado)
-    if not cadastrou:
+    id = cadastrarProduto("Produtos", produto)
+    if not id:
         return None
-    produto["_id"] = produto_cadastrado["_id"]
 
     print("Produto cadastrado com sucesso!")
     if not comVendedor:
-        if vendedor.get("produtos") == None:
-            vendedor["produtos"] = []
-        vendedor["produtos"].append(produto)
+        if not vendedor.get("produtos"):
+            vendedor["produtos"] = set()
+        vendedor["produtos"].add(id)
         atualizar = atualizarDado("Vendedores", vendedor)
 
         if not atualizar:
-            excluirProduto("Produtos", produto.get("_id"))
+            excluirProduto("Produtos", id)
             return None
         print("Vendedor vinculado com sucesso!")
-    return produto
+    return id
    
 def cadastrarMultiplos(vendedor):
-    produtos = []
+    produtos = set()
     while True:
         limparTerminal()
         produto = cadastrar(vendedor)
         if produto:
-            produtos.append(produto)
+            produtos.add(produto)
         if input("Deseja cadastrar mais algum produto? (S/N)").upper() != 'S':
             break
     return produtos
 
 def atualizar(produto = None):
-    comVendedor = True if produto == None else False
     if not produto:
         nome_produto = entrada("Insira o nome do produto", "NaoVazio", "Nome não pode estar em branco.")
         produtos = buscarPorAtributo("Produtos", "nome_produto", nome_produto)
         produto = escolherProduto(produtos)
         if not produto:
-            return None
-        vendedor = buscarPorId("Vendedores", produto.get("vendedor").get("_id"))
+            return
+        vendedor = buscarPorId("Vendedores", produto.get("id_vendedor"))
         if not vendedor:
-            return None
+            return
         elif not vendedor.get("produtos"):
             print("Este produto foi vendido, não podendo ser alterado!")
-            return None
+            return
         
         vendido = True
-        for produto_a_venda in vendedor.get("produtos"):
-            if produto_a_venda.get("_id") == produto.get("_id"):
+        for id_produto in vendedor.get("produtos"):
+            if id_produto == produto.get("id"):
                 vendido = False
                 break
 
         if vendido:
             print("Este produto foi vendido, não podendo ser alterado!")
-            return None
+            return
 
     while True:
         print(separador1)
@@ -108,25 +94,15 @@ def atualizar(produto = None):
         opcaoEscolhida = entrada("Insira uma opção", "Numero", "Insira uma opção válida")
         limparTerminal()
         if opcaoEscolhida == '0':
-            if comVendedor:
-                for produto_a_venda in vendedor["produtos"]:
-                    if produto_a_venda.get("_id") == produto.get("_id"):
-                        produto_a_venda["nome_produto"] = produto["nome_produto"]
-                        produto_a_venda["valor_produto"] = produto["valor_produto"]
-                        break
-                atualizar = atualizarDado("Vendedores", vendedor)
-                if not atualizar:
-                    return None
-            print("Produto atualizado no vendedor!")
             atualizar = atualizarDado("Produtos", produto)
             if not atualizar:
-                return None
+                return
             print("Produto atualizado com sucesso!")
-            return produto
+            return
         elif opcaoEscolhida == '1':
             produto["nome_produto"] = entrada("Insira o novo nome do produto", "NaoVazio", "Nome não pode estar em branco.")
         elif opcaoEscolhida == '2':
-            produto["valor_produto"] = entrada("Insira o novo valor do produto", "Float", "Valor Inválido. Deve conter apenas o número decimal.")
+            produto["valor_produto"] = float(entrada("Insira o novo valor do produto", "Float", "Valor Inválido. Deve conter apenas o número decimal."))
         else:
             print("Insira uma opção válida.")
 
@@ -138,16 +114,16 @@ def deletar(produto = None):
         produto = escolherProduto(produtos)
         if not produto:
             return None
-        vendedor = buscarPorId("Vendedores", produto.get("vendedor").get("_id"))
+        vendedor = buscarPorId("Vendedores", produto.get("id_vendedor"))
         if not vendedor:
             return None
         elif not vendedor.get("produtos"):
             print("Este produto foi vendido, não podendo ser deletado!")
             return None
-        
+
         vendido = True
-        for produto_a_venda in vendedor.get("produtos"):
-            if produto_a_venda.get("_id") == produto.get("_id"):
+        for produto_a_venda in vendedor["produtos"]:
+            if produto_a_venda == produto.get("id"):
                 vendido = False
                 break
 
@@ -158,21 +134,17 @@ def deletar(produto = None):
     visualizarProduto(produto, True, comVendedor)
     if entrada("Deseja realmente deletar este produto específico? (S/N)", "SimOuNao", "Insira 'S' para sim, ou 'N' para não").upper() == 'S':
         if comVendedor:
-            for produto_a_venda in vendedor.get("produtos"):
-                if produto_a_venda.get("_id") == produto.get("_id"):
-                    vendedor["produtos"].remove(produto_a_venda)
+            vendedor["produtos"].remove(produto.get("id"))
             atualizar = atualizarDado("Vendedores", vendedor)
             if not atualizar:
                 return None
             print("Produto removido do vendedor!")
 
-        excluir = excluirProduto("Produtos", produto.get("_id"))
+        excluir = excluirProduto("Produtos", produto.get("id"))
         if not excluir:
             return None
         print("Produto deletado com sucesso!")
-
-    return id
-    return True
+    return produto.get("id")
 
 def listar():
     produtos = []
@@ -198,19 +170,24 @@ def listar():
         print(separador1)
 
 def gerenciar(vendedor):
-    if not vendedor.get("produtos"):
-        produto = []
-    else:
-        produtos = vendedor.get("produtos")
+    if not vendedor:
+        return
+    produtos = set()
+    if vendedor.get("produtos"):
+        produtos = vendedor["produtos"]
     while True:
         quantidade = len(produtos)
 
         print(separador1)
         print("Produtos atuais:")
         if quantidade > 0:
-            for produto in produtos:
+            for produto_id in produtos:
+                produto = buscarPorId("Produtos", produto_id)
                 print(separador2)
-                visualizarProduto(produto)
+                if produto:
+                    visualizarProduto(produto)
+                else:
+                    print(f"Id inválido para produto: {produto_id}")
             print(separador2)
         else:
             print("Produto: Nenhum produto encontrado")
@@ -234,39 +211,18 @@ def gerenciar(vendedor):
         elif opcaoEscolhida == "1":
             produto = cadastrar(vendedor)
             if produto:
-                produtos.append(produto)
+                produtos.add(produto)
         elif opcaoEscolhida == "2" and quantidade > 0:
-            produtoEscolhido = escolherProduto(produtos)
-            if not produtoEscolhido:
-                continue
-            for produto in produtos:
-                if produto == produtoEscolhido:
-                    produto = atualizar(produto)
+            produto = escolherProduto(produtos)
+            if produto:
+                atualizar(produto)
         elif opcaoEscolhida == "3" and quantidade > 0:
-            produtoEscolhido = escolherProduto(produtos)
-            if not produtoEscolhido:
+            produto = escolherProduto(produtos)
+            if not produto:
                 continue
-            else:
-                deletou = deletar(produtoEscolhido)
-                if deletou:
-                    produtos.remove(produtoEscolhido)
+            deletou = deletar(produto)
+            if deletou:
+                produtos.remove(produto.get("id"))
         else:
             print("Insira uma opção válida.")
     return produtos
-
-def atualizarVendedor(vendedor):
-    if not vendedor.get("produtos"):
-        return
-    for produto in vendedor.get("produtos"):
-        produto["vendedor"] = {
-            "_id": vendedor.get("_id"),
-            "nome_vendedor": vendedor.get("nome_vendedor"),
-            "cnpj": vendedor.get("cnpj"),
-            "email_vendedor": vendedor.get("email_vendedor"),
-            "telefone_vendedor": vendedor.get("telefone_vendedor"),
-            "enderecos_vendedor": vendedor.get("enderecos_vendedor")
-        }
-        atualizar = atualizarDado("Produtos", produto)
-        if not atualizar:
-            return
-    print("Produtos atualizado com sucesso!")

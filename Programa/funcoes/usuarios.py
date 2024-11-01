@@ -4,7 +4,7 @@ from Programa.funcoes.utils.separar import separador1, separador2
 from Programa.funcoes.utils.escolher import usuario as escolherUsuario
 from Programa.funcoes.utils.visualizar import usuario as visualizarUsuario
 
-from Programa.funcoes.crud import cadastrar as cadastrarUsuario, atualizar as atualizarUsuario, buscarPorAtributo, buscarTodos, excluir as excluirUsuario
+from Programa.funcoes.crud import cadastrar as cadastrarUsuario, atualizar as atualizarUsuario, buscarPorAtributo, buscarTodos, excluir as excluirDado
 
 from Programa.funcoes.enderecos import cadastrarMultiplos as cadastrarEnderecos, gerenciar as gerenciarEnderecos
 from Programa.funcoes.favoritos import gerenciar as gerenciarFavoritos
@@ -23,12 +23,12 @@ def cadastrar():
         "telefone_usuario": telefone
     }
 
-    cadastrarUsuario("Usuarios", usuario)
+    usuario["id"] = cadastrarUsuario("Usuarios", usuario)
 
     if usuario:
         print("Usuário cadastrado com sucesso!")
         if entrada("Deseja cadastra seus endereços? (S/N)", "SimOuNao", "Insira 'S' para sim, ou 'N' para não.").upper() == 'S':
-            usuario["enderecos_usuario"] = cadastrarEnderecos()
+            usuario["enderecos"] = cadastrarEnderecos()
             atualizar_enderecos = atualizarUsuario("Usuarios", usuario)
             if not atualizar_enderecos:
                 return
@@ -78,7 +78,7 @@ def atualizar():
             elif opcaoEscolhida == '4':                                       
                 usuario['email_usuario'] = entrada("Insira o novo email do usuário", "Email", "Email inválido. Certifique-se de que contém '@' e '.'.")
             elif opcaoEscolhida == '5':
-                usuario['enderecos_usuario'] = gerenciarEnderecos(usuario.get('enderecos_usuario'))
+                usuario['enderecos'] = gerenciarEnderecos(usuario.get('enderecos'))
             elif opcaoEscolhida == '6':
                 usuario['favoritos'] = gerenciarFavoritos(usuario.get('favoritos'))
             elif opcaoEscolhida == '7':
@@ -93,7 +93,13 @@ def deletar():
     if usuario:
         visualizarUsuario(usuario, True, True, True)
         if entrada("Deseja realmente deletar este usuário específico? (S/N)", "SimOuNao", "Insira 'S' para sim, ou 'N' para não.").upper() == 'S':
-            deletar = excluirUsuario("Usuarios", usuario.get("_id"))
+            if usuario.get("enderecos"):
+                for id_endereco in usuario["enderecos"]:
+                    deletar = excluirDado("Enderecos", id_endereco)
+                    if not deletar:
+                        return None
+                print("Enderecos deletados com sucesso!")
+            deletar = excluirDado("Usuarios", usuario.get("id"))
             if not deletar:
                 return
             print("Usuario deletado com sucesso!")

@@ -18,7 +18,7 @@ def cadastrar(cliente = None):
         if not cliente:
             return None
 
-    endereco_cliente = escolherEndereco(cliente.get('enderecos_usuario'))
+    endereco_cliente = escolherEndereco(cliente.get("enderecos"))
     if not endereco_cliente:
         return None
 
@@ -29,26 +29,26 @@ def cadastrar(cliente = None):
     if not vendedor:
         return None
 
-    endereco_vendedor = escolherEndereco(vendedor.get("enderecos_vendedor"))
+    endereco_vendedor = escolherEndereco(vendedor.get("enderecos"))
     if not endereco_vendedor:
         return None
     
-    produtos_disponiveis = vendedor.get("produtos")
+    produtos_disponiveis = vendedor["produtos"]
     if not produtos_disponiveis:
         return None
 
-    produtos = []
-    valor_total = 0
+    produtos = set()
+    valor_total = 0.0
     while len(produtos_disponiveis) > 0:
         produto = escolherProduto(produtos_disponiveis)
         if not produto:
             return None
         
-        produtos_disponiveis.remove(produto)
-        produtos.append(produto)
+        produtos_disponiveis.remove(produto.get("id"))
+        produtos.add(produto.get("id"))
 
         valor_total += float(produto.get("valor_produto"))
-        if produtos_disponiveis == 0:
+        if len(produtos_disponiveis) == 0:
             break
         elif entrada("Deseja comprar mais algum produto? (S/N)", "SimOuNao", "Insira 'S' para sim, ou 'N' para não").upper() != 'S':
             break
@@ -57,97 +57,41 @@ def cadastrar(cliente = None):
         return None
 
     compra_realizada={
-        "data_compra": datetime.utcnow(),
-        "cliente": {
-            "_id": cliente.get("_id"),
-            "nome_usuario": cliente.get("nome_usuario"),
-            "cpf": cliente.get("cpf"),
-            "email_usuario": cliente.get("email_usuario"),
-            "telefone_usuario": cliente.get("telefone_usuario")
-        },
-        "remetente": {
-            "cep": endereco_vendedor.get("cep"),
-            "pais": endereco_vendedor.get("pais"),
-            "estado": endereco_vendedor.get("estado"),
-            "cidade": endereco_vendedor.get("cidade"),
-            "bairro": endereco_vendedor.get("bairro"),
-            "rua": endereco_vendedor.get("rua"),
-            "numero": endereco_vendedor.get("numero"),
-            "descricao": endereco_vendedor.get("descricao")
-        },
-        "destinatario": {
-            "cep": endereco_cliente.get("cep"),
-            "pais": endereco_cliente.get("pais"),
-            "estado": endereco_cliente.get("estado"),
-            "cidade": endereco_cliente.get("cidade"),
-            "bairro": endereco_cliente.get("bairro"),
-            "rua": endereco_cliente.get("rua"),
-            "numero": endereco_cliente.get("numero"),
-            "descricao": endereco_cliente.get("descricao")},
-        "vendedor": {
-            "_id": vendedor.get("_id"),
-            "nome_vendedor": vendedor.get("nome_vendedor"),
-            "cnpj": vendedor.get("cnpj"),
-            "email_vendedor": vendedor.get("email_vendedor"),
-            "telefone_vendedor": vendedor.get("telefone_vendedor")
-        },
+        "data_compra": datetime.now().replace(microsecond=0),
+        "id_cliente": cliente.get("id"),
+        "remetente": endereco_vendedor.get("id"),
+        "destinatario": endereco_cliente.get("id"),
+        "id_vendedor": vendedor.get("id"),
         "produtos": produtos,
         "valor_total": valor_total,
     }
     
-    cadastrarCompra("Compras", compra_realizada)
+    id = cadastrarCompra("Compras", compra_realizada)
     
-    if compra_realizada:
+    if id:
         print("Compra cadastrada com sucesso")
-
-        venda = {
-            "_id": compra_realizada.get("_id"),
-            "data_compra": compra_realizada.get("data_compra"),
-            "cliente": compra_realizada.get("cliente"),
-            "remetente": compra_realizada.get("remetente"),
-            "destinatario": compra_realizada.get("destinatario"),
-            "produtos": compra_realizada.get("produtos"),
-            "valor_total": compra_realizada.get("valor_total"),
-        }
-
-        if not vendedor.get("vendas"):
-            vendedor["vendas"] = []
-        vendedor["vendas"].append(venda)
+        vendedor["vendas"].add(id)
         vendedor["produtos"] = produtos_disponiveis
         atualizar = atualizarDado("Vendedores", vendedor)
         if not atualizar:
             return None
         print("Vendedor vinculado com sucesso!")
 
-        compra = {
-            "_id": compra_realizada.get("_id"),
-            "data_compra": compra_realizada.get("data_compra"),
-            "vendedor": compra_realizada.get("vendedor"),
-            "remetente": compra_realizada.get("remetente"),
-            "destinatario": compra_realizada.get("destinatario"),
-            "produtos": compra_realizada.get("produtos"),
-            "valor_total": compra_realizada.get("valor_total"),
-        }
         if not comCliente:
-            if not cliente.get("compras"):
-                cliente["compras"] = []
-            cliente["compras"].append(compra)
+            cliente["compras"].add(id)
             atualizar = atualizarDado("Usuarios", cliente)
             if not atualizar:
                 return None
             print("Cliente vinculado com sucesso!")
-        return compra
+        return id
 
 def cadastrarMultiplos(cliente):
-    if not cliente.get("compras"):
-        compras = []
-    else:
-        compras = [*cliente["compras"]]
+    compras = cliente.get("compras")
     while True:
         limparTerminal()
         compra = cadastrar(cliente)
         if compra:
-            compras.append(cliente)
+            compras.add(compra)
         if entrada("Deseja cadastrar mais alguma compra? (S/N)", "SimOuNao", "Insira 'S' para sim, ou 'N' para não").upper() != 'S':
             break
     return compras
@@ -171,32 +115,27 @@ def deletar(vendedor = None):
     visualizarCompra(venda, True, False, True)
     
     if entrada("Deseja realmente deletar esta venda específica? (S/N)", "SimOuNao", "Insira 'S' para sim, ou 'N' para não").upper() == 'S':
-        compra_realizada = buscarPorId("Compras", venda.get("_id"))
+        compra_realizada = buscarPorId("Compras", venda.get("id"))
 
-        cliente = buscarPorId("Usuarios", compra_realizada.get("cliente")["_id"])
+        cliente = buscarPorId("Usuarios", compra_realizada.get("id_cliente"))
         if cliente:
-            for compra_cliente in cliente.get("compras"):
-                if compra_cliente.get("_id") == venda.get("_id"):
-                    cliente["compras"].remove(compra_cliente)
+            cliente["compras"].remove(venda.get("id"))
             atualizar = atualizarDado("Usuarios", cliente)
             if not atualizar:
                 return None
             print("Compra removida do cliente!")
 
-        if not vendedor.get("produtos"):
-            vendedor["produtos"] = []
+        for produto in venda["produtos"]:
+            vendedor["produtos"].add(produto)
 
-        for produto in venda.get("produtos"):
-            vendedor["produtos"].append(produto)
-
-        vendedor["vendas"].remove(venda)
+        vendedor["vendas"].remove(venda.get("id"))
         if not comVendedor:
             atualizar = atualizarDado("Vendedores", vendedor)
             if not atualizar:
                 return None
         print("Produtos e compras corrigidas com sucesso!")
 
-        excluir = excluirCompra("Compras", venda.get("_id"))
+        excluir = excluirCompra("Compras", venda.get("id"))
         if not excluir:
             return None
         print("Compra deletada com sucesso!")
@@ -209,8 +148,14 @@ def listarCompras():
         nome_vendedor = entrada("Insira o nome do vendedor", "NaoVazio", "Nome do vendedor não pode estar em branco.")
         vendedores = buscarPorAtributo("Vendedores", "nome_vendedor", nome_vendedor)
         vendedor = escolherCliente(vendedores)
-        if vendedor:
-            compras = vendedor.get("Vendas")
+        if not vendedor:
+            return
+        if not vendedor.get("vendas"):
+            return
+        for id_venda in vendedor.get("vendas"):
+            venda = buscarPorId("Compras", id_venda)
+            if venda:        
+                compras.append(venda)
     else:
         compras = buscarTodos("Compras")
 
@@ -236,8 +181,14 @@ def listarVendas():
     if entrada("Deseja procurar as vendas de um usuário específico? (S/N)", "SimOuNao", "Insira 'S' para sim, ou 'N' para não").upper() == 'S':
         usuarios = buscarPorAtributo("Usuarios", "nome_usuario", entrada("Insira o nome do usuario", "NaoVazio", "Insira o nome do usuario"))
         cliente = escolherCliente(usuarios)
-        if cliente:
-            vendas = cliente.get("compras")
+        if not cliente:
+            return
+        if not cliente.get("compras"):
+            return
+        for id_compra in cliente.get("compras"):
+            compra = buscarPorId("Compras", id_compra)
+            if compra:        
+                vendas.append(compra)
     else:
         vendas = buscarTodos("Compras")
 
