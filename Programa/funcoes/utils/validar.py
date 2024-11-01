@@ -1,5 +1,4 @@
 from re import match
-from bson.objectid import ObjectId
 
 def SimOuNao(resposta):
     return resposta.strip().upper() in ['S', 'N']
@@ -21,13 +20,6 @@ def Telefone(telefone):
 
 def Cep(cep):
     return cep.isdigit() and len(cep) == 8
-
-def Id(id):
-    try:
-        ObjectId(id)
-        return True
-    except ValueError:
-        return False
 
 def Float(numero):
     try:
