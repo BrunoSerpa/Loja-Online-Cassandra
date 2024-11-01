@@ -1,22 +1,41 @@
+from uuid import UUID
+
+from Programa.funcoes.crud import buscarPorId
 from Programa.funcoes.utils.entrada import entrada
 from Programa.funcoes.utils.limpar import limparTerminal
 from Programa.funcoes.utils.salvarErro import salvarErro
 from Programa.funcoes.utils.separar import separador1
 import Programa.funcoes.utils.visualizar as visualizar
 
+def preparar_item(item, tipo):
+    try:
+        if isinstance(item, UUID):
+            item = buscarPorId(tipo, item)
+            if not item:
+                print(f"ID inválido para {tipo}: {item}")
+                return None
+        return item
+    except TypeError:
+        salvarErro("Erro ao transformar o item em dicionário.", f"O tipo {type(item)} não foi compatível")
+        return None
+
 
 def escolher_item(tipo, itens, descricao, visualizar, **kwargs):
+    itens = list(itens)
     quantidade = len(itens)
     if quantidade == 0:
         print(f"Nenhuma {descricao} encontrada" if not kwargs.get('termo_feminino') else f"Nenhum {descricao} encontrado")
     elif quantidade == 1:
-        return itens[0]
+        return preparar_item(itens[0], tipo)
     else:
         print(f"Mais de uma {descricao} encontrada!" if kwargs.get('termo_feminino') else f"Mais de um {descricao} encontrado!")
         while True:
             print(f"Escolha uma {descricao}:" if kwargs.get('termo_feminino') else f"Escolha um {descricao}:")
             for posicao, item in enumerate(itens, start=1):
                 print(separador1)
+                item = preparar_item(item, tipo)
+                if item is None:
+                    continue
                 print(f'{posicao} - {tipo.capitalize()}:')
                 visualizar(item)
             print(separador1)
@@ -24,7 +43,7 @@ def escolher_item(tipo, itens, descricao, visualizar, **kwargs):
             limparTerminal()
 
             if 0 < posicao <= len(itens):
-                return itens[posicao - 1]
+                return preparar_item(itens[posicao - 1], tipo)
             elif len(itens) == 0:
                 return None
             else:
