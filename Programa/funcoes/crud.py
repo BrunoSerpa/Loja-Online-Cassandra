@@ -1,7 +1,9 @@
 from Programa.conexaoBanco.conectar import conectar
 from Programa.funcoes.utils.salvarErro import salvarErro
+from Programa.funcoes.utils.converter import rowParaDict
 
-from bson.objectid import ObjectId
+from cassandra.query import SimpleStatement
+from uuid import uuid4, UUID
 
 sessao = conectar()
 
@@ -11,10 +13,11 @@ def escolherColecao(nome):
         return None
 
     colecoes = {
-        "Usuarios": sessao.Usuarios,
-        "Vendedores": sessao.Vendedores,
-        "Produtos": sessao.Produtos,
-        "Compras": sessao.Compras
+        'Usuarios': 'usuarios',
+        'Vendedores': 'vendedores',
+        'Produtos': 'produtos',
+        'Compras': 'compras',
+        'Enderecos': 'enderecos'
     }
     return colecoes.get(nome)
 
@@ -23,8 +26,24 @@ def cadastrar(nomeColecao, dados):
     if colecao is None:
         return None
     try:
-        colecao.insert_one(dados)
-        return dados
+        colunas = ', '.join(dados.keys())
+        valores = []
+        
+        for v in dados.values():
+            if isinstance(v, UUID) or isinstance(v, float) or isinstance(v, int):
+                valores.append(f"{v}")
+            elif isinstance(v, set):
+                set_values = ', '.join([str(uuid) for uuid in v])
+                valores.append(f"{{{set_values}}}")
+            else:
+                valores.append(f"'{v}'")
+        
+        valores_str = ', '.join(valores)
+        id = uuid4()
+        query = f"INSERT INTO {colecao} (id, {colunas}) VALUES ({id}, {valores_str})"
+        sessao.execute(SimpleStatement(query))
+        return id
+
     except Exception as e:
         salvarErro(f"Erro ao cadastrar em {nomeColecao}", e)
         return None
@@ -34,8 +53,23 @@ def atualizar(nomeColecao, dados):
     if colecao == None:
         return None
     try:
-        colecao.update_one({"_id": ObjectId(dados["_id"])}, {"$set": dados})
-        return dados
+        updates = []
+        for k, v in dados.items():
+            if k != "id":
+                if isinstance(v, set):
+                    set_values = ', '.join([str(uuid) for uuid in v])
+                    updates.append(f"{k} = {{{set_values}}}")
+                elif isinstance(v, (int, float)):
+                    updates.append(f"{k} = {v}")
+                elif isinstance(v, UUID):
+                    updates.append(f"{k} = {str(v)}")
+                else:
+                    updates.append(f"{k} = '{v}'")
+                    
+        updates_str = ', '.join(updates)
+        query = f"UPDATE {colecao} SET {updates_str} WHERE id = {dados['id']}"
+        sessao.execute(SimpleStatement(query))
+        return dados["id"]
     except Exception as e:
         salvarErro(f"Erro ao atualizar {nomeColecao}", e)
         return None
@@ -45,7 +79,8 @@ def excluir(nomeColecao, id):
     if colecao == None:
         return None
     try:
-        colecao.delete_one({"_id": id})
+        query = f"DELETE FROM {colecao} WHERE id = {id}"
+        sessao.execute(SimpleStatement(query))
         return id
     except Exception as e:
         salvarErro(f"Erro ao excluir em {nomeColecao}", e)
@@ -56,8 +91,9 @@ def buscarTodos(nomeColecao):
     if colecao == None:
         return None
     try:
-        resultados = colecao.find().sort("_id")
-        return list(resultados)
+        query = f"SELECT * FROM {colecao}"
+        resultados = sessao.execute(SimpleStatement(query))
+        return [rowParaDict(row, colecao) for row in resultados]
     except Exception as e:
         salvarErro("Erro ao buscar todos os registros", e)
     return None
@@ -67,11 +103,13 @@ def buscarPorId(nomeColecao, id):
     if colecao == None:
         return None
     try:
-        resultado = colecao.find_one({"_id": ObjectId(id)})
+        query = f"SELECT * FROM {colecao} WHERE id = {id}"
+        prepared_stmt = SimpleStatement(query)
+        resultado = sessao.execute(prepared_stmt).one()
         if resultado:
-            return resultado
+            return rowParaDict(resultado, colecao)
         else:
-            salvarErro("Registro não encontrado", f'ID {id} não encontrado na coleção {nomeColecao}')
+            salvarErro("Registro não encontrado", f'ID {id} não encontrado na colecao {nomeColecao}')
             return None
     except Exception as e:
         salvarErro("Erro ao buscar registro por ID", e)
@@ -82,8 +120,9 @@ def buscarPorAtributo(nomeColecao, nomeCampo, atributo):
     if colecao == None:
         return None
     try:
-        resultados = colecao.find({nomeCampo: {"$regex":atributo, "$options": "i"}})
-        return list(resultados)
+        query = f"SELECT * FROM {colecao} WHERE {nomeCampo} = '{atributo}'"
+        resultados = sessao.execute(SimpleStatement(query))
+        return [rowParaDict(row, colecao) for row in resultados]
     except Exception as e:
         salvarErro("Erro ao buscar registro por atributo semelhante", e)
         return None
