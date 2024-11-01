@@ -1,3 +1,5 @@
+from Programa.funcoes.crud import cadastrar as cadastrarEndereco, buscarPorId, excluir as excluirEndereco, atualizar as atualizarEndereco
+
 from Programa.funcoes.utils.limpar import limparTerminal
 from Programa.funcoes.utils.entrada import entrada
 from Programa.funcoes.utils.visualizar import endereco as visualizarEndereco
@@ -25,14 +27,16 @@ def cadastrar():
         "descricao": descricao
     }
 
-    return endereco
+    return cadastrarEndereco("Enderecos", endereco)
 
 def cadastrarMultiplos():
-    enderecos = []
+    enderecos = set()
 
     while True:
         limparTerminal()
-        enderecos.append(cadastrar())
+        id_endereco = cadastrar()
+        if id_endereco:
+            enderecos.add(id_endereco)
         if input("Deseja cadastrar mais algum endereço? (S/N)").upper() != 'S':
             break
     return enderecos
@@ -64,6 +68,7 @@ def atualizar(endereco):
         limparTerminal()
 
         if opcaoEscolhida == '0':
+            atualizarEndereco("Enderecos", endereco)
             break
         elif opcaoEscolhida == '1':
             endereco["cep"] = entrada("Insira o novo CEP", "Cep", "CEP Inválido. Deve conter 8 dígitos numéricos.")
@@ -88,20 +93,25 @@ def atualizar(endereco):
 def deletar(endereco):
     visualizarEndereco(endereco)
     if entrada("Deseja realmente deletar este endereço específico? (S/N)", "SimOuNao", "Insira 'S' para sim, ou 'N' para não").upper() == 'S':
-        return True
+        id = excluirEndereco("Enderecos", endereco.get("id"))
+        if id:
+            return True
     return False
 
 def gerenciar(enderecos):
-    enderecos = [*enderecos]
     while True:
         quantidade = len(enderecos)
 
         print(separador1)
         print("Endereços atuais:")
         if quantidade > 0:
-            for endereco in enderecos:
+            for endereco_id in enderecos:
+                endereco = buscarPorId("Enderecos", endereco_id)
                 print(separador2)
-                visualizarEndereco(endereco)
+                if endereco:
+                    visualizarEndereco(endereco)
+                else:
+                    print(f"Id inválido para endereço: {endereco_id}")
             print(separador2)
         else:
             print("Endereço: Nenhum endereço encontrado")
@@ -126,14 +136,12 @@ def gerenciar(enderecos):
         elif opcaoEscolhida == "1":
             endereco = cadastrar()
             if endereco:
-                enderecos.append(endereco)
+                enderecos.add(endereco)
         elif opcaoEscolhida == "2" and quantidade > 0:
             enderecoEscolhido = escolherEndereco(enderecos)
             if not enderecoEscolhido:
                 continue
-            for endereco in enderecos:
-                if endereco == enderecoEscolhido:
-                    endereco = atualizar(endereco)
+            atualizar(enderecoEscolhido)
         elif opcaoEscolhida == "3"  and quantidade > 0:
             enderecoEscolhido = escolherEndereco(enderecos)
             if not enderecoEscolhido:
@@ -141,6 +149,6 @@ def gerenciar(enderecos):
             else:
                 deletou = deletar(enderecoEscolhido)
                 if deletou:
-                    enderecos.remove(enderecoEscolhido)
+                    enderecos.remove(enderecoEscolhido.get("id"))
         else:
             print("Insira uma opção válida.")
